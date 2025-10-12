@@ -9,7 +9,7 @@ const http = require("http");
 const url = require("url");
 const qs = require("querystring");
 const { MESSAGES } = require("./strings");
-const { readRequestBody, isValidWord, isValidDefinition } = require("./utils");
+const { readJSON, isValidWord, isValidDefinition } = require("./utils");
 
 // ===== In-memory storage =====
 // Required variable name: `dictionary` (array of { word, definition })
@@ -20,7 +20,7 @@ let requestCount = 0; // total number of requests served (all methods/paths)
 function setCORS(res) {
   // For the lab, allow all origins. In production, restrict to Server1 origin.
   res.setHeader("Access-Control-Allow-Origin", "*");
-  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
+  res.setHeader("Access-Control-Allow-Methods", "GET,POST,OPTIONS"); //Allow Get,Post,Options request
   res.setHeader("Access-Control-Allow-Headers", "Content-Type");
 }
 
@@ -31,12 +31,13 @@ function sendJSON(res, statusCode, payload) {
     "Content-Type": "application/json; charset=utf-8",
     "Content-Length": Buffer.byteLength(body),
   });
-  res.end(body);
+  res.end(body); // Send the response
 }
 
-// ---- Helper: find entry index (case-insensitive word match) ----
+// ---- Helper: find word in dictionary ----
 function findIndexByWord(word) {
   return dictionary.findIndex(
+    // Find the index of the word in the dictionary, -1 if not found
     (e) => e.word.toLowerCase() === word.toLowerCase()
   );
 }
@@ -47,6 +48,7 @@ async function handleGet(req, res, query) {
 
   if (!isValidWord(word)) {
     return sendJSON(res, 400, {
+      // Bad Request
       requestNumber: requestCount,
       entriesCount: dictionary.length,
       message: MESSAGES.INVALID_WORD,
@@ -75,32 +77,24 @@ async function handleGet(req, res, query) {
 // ---- Route: POST /api/definitions ----
 // Accepts JSON, x-www-form-urlencoded, or plain text "word=...&definition=..."
 async function handlePost(req, res) {
-  let parsed = {};
+  let payload;
   try {
-    const raw = await readRequestBody(req);
-
-    // Try JSON first
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      // Fallback: try querystring parsing
-      parsed = qs.parse(raw);
-    }
-  } catch (e) {
-    return sendJSON(res, 413, {
+    payload = await readJSON(req); //make the request body to json
+  } catch {
+    return sendJSON(res, 400, {
       requestNumber: requestCount,
       entriesCount: dictionary.length,
-      message: MESSAGES.BODY_TOO_LARGE,
+      message: MESSAGES.INVALID_JSON,
       error: true,
     });
   }
 
-  const word = (parsed.word || "").trim();
-  const definition = (parsed.definition || "").trim();
+  const word = (payload.word || "").trim();
+  const definition = (payload.definition || "").trim();
 
   // Basic input validation (non-empty strings; restrict word characters)
   if (!isValidWord(word)) {
-    return sendJSON(res, 400, {
+    return sendJSON(res, 400, { //
       requestNumber: requestCount,
       entriesCount: dictionary.length,
       message: MESSAGES.INVALID_WORD,

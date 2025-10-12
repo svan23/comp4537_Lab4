@@ -2,33 +2,23 @@
  * Small helper utilities for the API.
  */
 
-const MAX_BODY_BYTES = 1 * 1024 * 1024; // ~1MB cap to avoid abuse
-
 /**
- * Read full request body as UTF-8 string.
- * Works for JSON or x-www-form-urlencoded or raw text.
+ * Read request body and parse as JSON.
+ * Assumes JSON-only requests.
  */
-function readRequestBody(req) {
+function readJSON(req) {
   return new Promise((resolve, reject) => {
-    let size = 0;
     const chunks = [];
-
-    req.on("data", (chunk) => {
-      size += chunk.length;
-      if (size > MAX_BODY_BYTES) {
-        reject(new Error("BODY_TOO_LARGE"));
-        req.destroy(); // stop reading
-        return;
-      }
-      chunks.push(chunk);
-    });
-
+    req.on("data", (chunk) => chunks.push(chunk));
     req.on("end", () => {
-      const raw = Buffer.concat(chunks).toString("utf8");
-      resolve(raw);
+      try {
+        const raw = Buffer.concat(chunks).toString("utf8");
+        resolve(JSON.parse(raw));
+      } catch (e) {
+        reject(e); // caller can send a 400 "Bad JSON"
+      }
     });
-
-    req.on("error", (err) => reject(err));
+    req.on("error", reject);
   });
 }
 
@@ -40,7 +30,7 @@ function isValidWord(s) {
   if (typeof s !== "string") return false;
   const trimmed = s.trim();
   if (!trimmed) return false;
-  return /^[A-Za-z][A-Za-z\s\-']*$/.test(trimmed);
+  return /^[A-Za-z][A-Za-z\s\-']*$/.test(trimmed); //to ensure the string is letters.
 }
 
 /**
@@ -52,4 +42,4 @@ function isValidDefinition(s) {
   return s.trim().length > 0;
 }
 
-module.exports = { readRequestBody, isValidWord, isValidDefinition };
+module.exports = { readJSON, isValidWord, isValidDefinition };

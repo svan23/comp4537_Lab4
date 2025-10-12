@@ -12,6 +12,7 @@ const MESSAGES = {
   ROUTE_NOT_FOUND: "Route not found.",
   SERVER_ERROR: "Internal server error.",
   BODY_TOO_LARGE: "Request body too large. Max ~1MB.",
+  INVALID_JSON: "Invalid JSON in request body.",
 
   created: (w) => `New entry recorded: "${w}"`,
   alreadyExists: (w) => `Warning! "${w}" already exists.`,
